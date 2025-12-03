@@ -181,13 +181,13 @@
 
         <div class="card">
             <p><strong>📌 Matriz de Confusión</strong></p>
-            <img src="/static/confusion_matrix.png" class="image">
+            <img src="confusion_matrix.png" class="image">
 
             <p><strong>📌 Curva ROC</strong></p>
-            <img src="/static/roc_curve.png" class="image">
+            <img src="roc_curve.png" class="image">
 
             <p><strong>📌 Importancia de Variables</strong></p>
-            <img src="/static/feature_importance.png" class="image">
+            <img src="feature_importance.png" class="image">
         </div>
 
 
@@ -226,38 +226,37 @@
 
     </div>
 
-   <script>
-async function predict() {
+    <script>
+    async function predict() {
 
-    const payload = {
-        tenure: parseFloat(document.getElementById("tenure").value),
-        monthly: parseFloat(document.getElementById("monthly").value),
-        contract: document.getElementById("contract").value  // TEXTO correcto
-    };
+        const payload = {
+            tenure: parseFloat(document.getElementById("tenure").value),
+            MonthlyCharges: parseFloat(document.getElementById("monthly").value),
+            Contract: document.getElementById("contract").value  // TEXTO, no número
+        };
 
-    const response = await fetch("https://churn-api-rick-1.onrender.com/predict", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-    });
+        const response = await fetch("https://churn-api-rick-1.onrender.com/predict", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
 
-    const data = await response.json();
+        const data = await response.json();
 
-    const box = document.getElementById("result");
-    box.style.display = "block";
+        const box = document.getElementById("result");
+        box.style.display = "block";
 
-    if (data.prediction === 1) {
-        box.style.background = "#ffdddd";
-        box.innerHTML = `<h3>⚠️ Riesgo de Churn</h3>
-                         <p>Probabilidad estimada: <strong>${(data.prob*100).toFixed(2)}%</strong></p>`;
-    } else {
-        box.style.background = "#ddffdd";
-        box.innerHTML = `<h3>✔ Cliente No Abandona</h3>
-                         <p>Probabilidad estimada: <strong>${(data.prob*100).toFixed(2)}%</strong></p>`;
+        if (data.prediction === 1) {
+            box.style.background = "#ffdddd";
+            box.innerHTML = `<h3>⚠️ Riesgo de Churn</h3>
+                             <p>Probabilidad estimada: <strong>${(data.probability*100).toFixed(2)}%</strong></p>`;
+        } else {
+            box.style.background = "#ddffdd";
+            box.innerHTML = `<h3>✔ Cliente No Abandona</h3>
+                             <p>Probabilidad estimada: <strong>${(data.probability*100).toFixed(2)}%</strong></p>`;
+        }
     }
-}
 </script>
-
 
 
 </body>

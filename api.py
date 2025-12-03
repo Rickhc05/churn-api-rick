@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import joblib
 import numpy as np
@@ -18,7 +18,7 @@ model = joblib.load("modelo_xgb.pkl")
 scaler = joblib.load("scaler.pkl")
 
 # -------------------------------------------------
-# Reconstruir el preprocesamiento EXACTO del notebook
+# Reconstruir preprocesamiento EXACTO
 # -------------------------------------------------
 df = pd.read_excel("Customer_Churn_Dataset.xlsx")
 df_clean = df.drop("customerID", axis=1).copy()
@@ -29,7 +29,7 @@ df_clean["TotalCharges"].fillna(df_clean["TotalCharges"].median(), inplace=True)
 df_encoded = df_clean.copy()
 encoders = {}
 
-# Crear LabelEncoders exactamente igual que en el notebook
+# LabelEncoders EXACTOS del entrenamiento
 for col in df_encoded.select_dtypes(include="object").columns:
     if col != "Churn":
         le = LabelEncoder()
@@ -40,39 +40,49 @@ df_encoded["Churn"] = df_encoded["Churn"].map({"No": 0, "Yes": 1})
 
 feature_columns = df_encoded.drop("Churn", axis=1).columns
 
-# Fila base para asignar valores por defecto
+# Fila base
 base_row = df_encoded.drop("Churn", axis=1).mode().iloc[0].copy()
+
+# -------------------------------------------------
+# Servir HTML estático desde /static/index.html
+# -------------------------------------------------
+@app.get("/")
+def serve_dashboard():
+    return send_from_directory("static", "index.html")
+
+@app.get("/static/<path:path>")
+def serve_static(path):
+    return send_from_directory("static", path)
 
 # -------------------------------------------------
 # Endpoint de predicción REAL
 # -------------------------------------------------
-@app.route("/predict", methods=["POST"])
+@app.post("/predict")
 def predict():
     data = request.json
 
-    # Crear copia de fila base
     row = base_row.copy()
 
     # -------------------------
     # tenure
     # -------------------------
-    if "tenure" in data and data["tenure"] not in ["", None]:
+    if "tenure" in data:
         row["tenure"] = float(data["tenure"])
 
     # -------------------------
-    # MonthlyCharges
+    # MonthlyCharges (from HTML: "monthly")
     # -------------------------
-    if "MonthlyCharges" in data and data["MonthlyCharges"] not in ["", None]:
-        row["MonthlyCharges"] = float(data["MonthlyCharges"])
+    if "monthly" in data:
+        row["MonthlyCharges"] = float(data["monthly"])
 
     # -------------------------
-    # Contract (texto o número)
+    # Contract
     # -------------------------
-    if "Contract" in data and data["Contract"] is not None:
-        
-        contract_value = data["Contract"]
+    if "contract" in data:
 
-        # Si llega un número desde el HTML
+        contract_value = data["contract"]
+
+        # Si HTML envía 0,1,2 → convertir a texto original
         numeric_map = {
             "0": "Month-to-month",
             "1": "One year",
@@ -82,22 +92,21 @@ def predict():
             2: "Two year"
         }
 
-        # Convertir si es número
         if contract_value in numeric_map:
             contract_value = numeric_map[contract_value]
 
-        # Usar el LabelEncoder correspondiente
-        contract_encoder = encoders["Contract"]
+        le_contract = encoders["Contract"]
 
         try:
-            row["Contract"] = contract_encoder.transform([contract_value])[0]
-        except Exception as e:
+            row["Contract"] = le_contract.transform([contract_value])[0]
+        except:
             return jsonify({
-                "error": f"El valor de Contract no es válido: {contract_value}",
-                "detalles": str(e)
+                "error": f"Valor de Contract inválido: {contract_value}"
             }), 400
 
-    # Convertir en DataFrame
+    # -------------------------
+    # Crear df
+    # -------------------------
     X_input = pd.DataFrame([row], columns=feature_columns)
 
     # Escalar
@@ -109,13 +118,12 @@ def predict():
 
     return jsonify({
         "prediction": pred,
-        "probability": prob
+        "prob": prob
     })
-
 
 # -------------------------------------------------
 # Iniciar servidor
 # -------------------------------------------------
 if __name__ == "__main__":
-    print("✅ API de churn corriendo en http://localhost:5000")
+    print("🚀 API de churn corriendo en http://localhost:5000")
     app.run(host="0.0.0.0", port=5000)
